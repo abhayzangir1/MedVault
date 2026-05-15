@@ -1,0 +1,19 @@
+export const queryKeys = {
+  profile: (userId: string) => ['profile', userId] as const,
+  careProfiles: (userId: string) => ['care-profiles', userId] as const,
+  familyProfiles: (userId: string) => ['care-profiles', userId] as const,
+  dashboard: (userId: string, careProfileId: string | null) => ['dashboard', userId, careProfileId] as const,
+  caregiverDashboard: (userId: string) => ['caregiver-dashboard', userId] as const,
+  timeline: (userId: string, careProfileId: string | null) => ['timeline', userId, careProfileId] as const,
+  medications: (userId: string, careProfileId: string | null) => ['medications', userId, careProfileId] as const,
+  labs: (userId: string, careProfileId: string | null) => ['labs', userId, careProfileId] as const,
+  documents: (userId: string, careProfileId: string | null) => ['documents', userId, careProfileId] as const,
+  symptoms: (userId: string, careProfileId: string | null) => ['symptoms', userId, careProfileId] as const,
+  costs: (userId: string, careProfileId: string | null) => ['costs', userId, careProfileId] as const,
+  smartImportSuggestions: (userId: string, careProfileId: string | null) => ['smart-import-suggestions', userId, careProfileId] as const,
+  shareLinks: (userId: string) => ['share-links', userId] as const,
+  emergencyScopes: (userId: string) => ['emergency-scopes', userId] as const,
+  monthlyDigests: (userId: string) => ['monthly-digests', userId] as const,
+  publicHealthPacket: (token: string) => ['public-health-packet', token] as const,
+  dataPacketPreview: (userId: string, purpose: string) => ['data-packet-preview', userId, purpose] as const
+};
