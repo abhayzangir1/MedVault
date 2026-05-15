@@ -1,6 +1,6 @@
 # MedVault Phase 21 Security Audit
 
-Status: pre-publish security gate in progress. Do not publish, share APKs publicly, upload production AABs, or enable live paid subscriptions until Blocker and High items are closed and verified against live services.
+Status: pre-publish security gate in progress. Local fixes are implemented and live Supabase migrations/functions are deployed, but live test-user verification and production-only secrets are still pending. Do not publish, share APKs publicly, upload production AABs, or enable live paid subscriptions until Blocker and High items are verified against live services.
 
 ## Threat Model
 
@@ -36,7 +36,7 @@ Security invariants:
 - Impact: A malicious or modified mobile client could self-upgrade to Pro Family before Google Play verification is implemented.
 - Validation: Static trace from `profiles` policy and mobile Supabase update capability. No live Supabase project is required to confirm the policy shape.
 - Fix: Added migration `006_phase_21_security_hardening.sql` to revoke authenticated/anon updates for billing, subscription, and quota columns, plus a trigger guard that rejects authenticated client changes to billing/quota fields even when table-level grants are broad. Also restricted `profileService.updateProfile` to settings-safe fields only.
-- Status: Fixed locally; must be applied and verified in live Supabase before release.
+- Status: Migration applied to live Supabase; must still be verified with a disposable live test user before release.
 
 ### High: Public packet RPC needed explicit owner binding
 
@@ -44,7 +44,7 @@ Security invariants:
 - Impact: If a care profile UUID ever leaked and was inserted into a packet scope, the public RPC could become a cross-account disclosure path because SECURITY DEFINER bypasses RLS.
 - Validation: Static trace through Data Packet creation, public token RPC, and returned record queries.
 - Fix: Added migration `006_phase_21_security_hardening.sql` with `data_packet_scope_is_owned`, stricter `data_packets` RLS, and a recreated public RPC that owner-binds care profiles and all returned records.
-- Status: Fixed locally; must be applied and verified in live Supabase before release.
+- Status: Migration applied to live Supabase; must still be verified with owned, unowned, expired, and revoked packet tests before release.
 
 ### High: Client-side Pro gates trusted plan strings too loosely
 
@@ -60,7 +60,7 @@ Security invariants:
 - Impact: Without server-side quota updates, AI/OCR quota enforcement could fail open or break after applying hardening.
 - Validation: Static trace through `generate-lab-interpretation` and `scan-document`.
 - Fix: Both functions now require `SUPABASE_SERVICE_ROLE_KEY` server-side and increment counters through an admin client after user ownership checks.
-- Status: Fixed locally; must configure Supabase secrets before deploying these functions.
+- Status: Functions deployed. `SUPABASE_SERVICE_ROLE_KEY` is available as a managed Supabase secret; `GEMINI_API_KEY` is still pending before production AI/OCR use.
 
 ### Medium: Health safety disclaimers were incomplete at action time
 
@@ -81,25 +81,25 @@ Security invariants:
 - Evidence: Public packet reads incremented share-link `access_count`, but did not preserve an audit log or enforce a rate limit.
 - Impact: Abuse or scraping attempts would be harder to investigate and could repeatedly hit public packet tokens.
 - Fix: Phase 21 migration now creates `public_packet_access_logs`, logs successful and failed packet reads, and rate-limits valid share/Emergency tokens to 60 reads per minute inside `get_public_health_packet`.
-- Status: Fixed locally; must be applied and verified in live Supabase before release.
+- Status: Migration applied to live Supabase; access logging and rate limiting still need live token tests before release.
 
 ### Fixed: Account deletion needed a hard-delete backend
 
 - Evidence: Settings created deletion requests, but production hard-delete was deferred.
 - Impact: Play Store account deletion expectations and user trust require an actual backend deletion path.
 - Fix: Added `delete-account` Edge Function and wired Settings to call it. It requires the signed-in user session, `confirmation: "DELETE"`, service-role secret on the server, removes user-prefixed storage objects, then deletes the Auth user so database rows cascade.
-- Status: Fixed locally; must be deployed with JWT verification enabled and tested against live Supabase.
+- Status: Function deployed; JWT protection and hard-delete still need testing against a disposable live user.
 
 ### Fixed: Google Play purchase verifier was a non-unlocking contract stub
 
 - Evidence: `verify-google-play-purchase` previously stored purchase metadata as `pending` and returned `verified: false`.
 - Impact: Production billing could not safely unlock Pro Family, and an unfinished verifier would block Play Store subscription testing.
 - Fix: The function now signs a Google service-account JWT, exchanges it for an OAuth token, calls Android Publisher `purchases.subscriptionsv2.get`, requires the expected product ID, maps Google subscription states conservatively, and only writes `pro_family` for active or in-grace subscriptions.
-- Status: Fixed locally; must be tested with Play Console internal testing and a backend service account before production.
+- Status: Function deployed. `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` and Play Console internal testing are still pending before production billing can unlock Pro.
 
 ## Secret Scan
 
-Result: no live secrets found in tracked project files during pattern scan. Matches were placeholders or documentation references only.
+Result: no live secrets found in tracked project files during pattern scan. Matches were placeholders, documentation references, function environment variable names, or the public Supabase project URL only. The live publishable key and legacy anon JWT are not tracked.
 
 Checked for:
 
@@ -115,14 +115,14 @@ Checked for:
 
 ## Remaining Release Blockers
 
-- Apply `006_phase_21_security_hardening.sql` to live Supabase and verify profile column update restrictions.
+- Verify profile billing/quota column update restrictions against live Supabase with a disposable user.
 - Verify public packet RPC with owned, unowned, expired, and revoked tokens.
-- Create private `documents` and `health_photos` buckets and verify signed URL expiry.
-- Apply and verify public share/Emergency access logging and rate limiting before production.
-- Implement production Google Play purchase verification with `purchases.subscriptionsv2.get`.
+- Verify private `documents` and `health_photos` buckets and signed URL expiry in the live project.
+- Verify public share/Emergency access logging and rate limiting before production.
+- Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` to Supabase secrets when Play Console service account is ready.
 - Test production Google Play purchase verification with Play Console internal testing.
 - Add Real-time Developer Notifications or a periodic entitlement refresh.
-- Deploy `delete-account` with JWT verification enabled and test hard-delete against live Supabase.
+- Test `delete-account` JWT protection and hard-delete against a disposable live Supabase user.
 - Run Supabase Security Advisor and Performance Advisor after migrations.
 - Complete real-device notification/upload/QR/PDF/offline QA from preview APK.
 - Host final Privacy Policy and Terms before Play submission.

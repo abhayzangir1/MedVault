@@ -12,6 +12,20 @@ https://lykfqucwylxljaxqmzcc.supabase.co
 
 - Mobile `.env` has been created with the Supabase URL and publishable key.
 - Combined fresh-project migration file has been generated at `supabase/apply_all_migrations.sql`.
+- Supabase CLI has been linked to project `lykfqucwylxljaxqmzcc`.
+- Local private `.env` and Supabase CLI cache are ignored from Git.
+
+## Completed On Live Supabase
+
+- Migrations `001` through `006` have been applied with `supabase db push`.
+- Edge Functions are deployed and active:
+  - `verify-google-play-purchase`
+  - `delete-account`
+  - `scan-document`
+  - `generate-lab-interpretation`
+- Non-secret Google Play billing config has been set in Supabase secrets:
+  - `GOOGLE_PLAY_PACKAGE_NAME=com.medvault.app`
+  - `GOOGLE_PLAY_SUBSCRIPTION_PRODUCT_ID=medvault_pro_family_monthly`
 
 ## Dashboard Setup Choices
 
@@ -24,7 +38,9 @@ Use these choices for the project:
 - OrioleDB alpha: do not use.
 - Storage buckets: created by migration as private `documents`, private `health_photos`, and public `avatars`.
 
-## Apply Migrations
+## Apply Migrations Manually If Needed
+
+The live project has already been migrated through the CLI. Use this manual path only for disaster recovery or a fresh project:
 
 1. Open Supabase Dashboard.
 2. Select project `lykfqucwylxljaxqmzcc`.
@@ -56,21 +72,26 @@ Verify:
 
 Do not paste these into the mobile app `.env`.
 
-Configure later in Supabase project secrets:
+Already configured by Supabase or CLI:
 
 ```text
-SUPABASE_SERVICE_ROLE_KEY=
-GEMINI_API_KEY=
+SUPABASE_SERVICE_ROLE_KEY=<managed by Supabase>
 GOOGLE_PLAY_PACKAGE_NAME=com.medvault.app
 GOOGLE_PLAY_SUBSCRIPTION_PRODUCT_ID=medvault_pro_family_monthly
+```
+
+Still pending before production AI/OCR and Play Billing testing:
+
+```text
+GEMINI_API_KEY=
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=
 ```
 
 Razorpay secrets remain future-only unless approved alternative billing or web checkout is selected.
 
-## Deploy Functions Later
+## Deploy Functions
 
-Deploy after CLI login or connector access is available:
+Functions have already been deployed. Re-deploy after code changes with:
 
 ```bash
 supabase functions deploy verify-google-play-purchase --project-ref lykfqucwylxljaxqmzcc

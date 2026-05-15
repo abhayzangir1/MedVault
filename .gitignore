@@ -8,6 +8,7 @@ ios/
 .env.*
 !.env.example
 !**/.env.example
+supabase/.temp/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

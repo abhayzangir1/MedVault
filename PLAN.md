@@ -43,7 +43,7 @@ Build MedVault 2.0 in `D:\abhay\mvp's\medvault\MedVault_2.0` as atomic vertical 
 - Account deletion, storage validation, RLS/storage review, and Play Store health declarations are production blockers.
 
 **Next Execution**
-- Continue from `execution_plan.md`, starting with pasting `supabase/apply_all_migrations.sql` into the live Supabase SQL Editor for project `lykfqucwylxljaxqmzcc`, then deploy Supabase functions before EAS preview APK or Google Play Billing testing.
+- Continue from `execution_plan.md`, starting with local verification and safe private GitHub commit after live Supabase setup. Do not start EAS preview APK, Play Billing internal testing, or production AI/OCR until the remaining production-only secrets and live test-user checks are complete.
 
 **Latest Save State**
-- Phase 21 Security And Privacy Audit is complete locally with live Supabase public env wired, combined migration SQL generated, secret scan, audit doc, no-public-push safeguards, Supabase security hardening migration, public packet access logs/rate limiting, hard-delete account Edge Function, Google Play backend verifier, verified-subscription gates, server-side AI/OCR quota updates, user-facing health disclaimers, TypeScript passing, audit clean, Expo Doctor passing, and Android export passing. Next exact step: paste `supabase/apply_all_migrations.sql` into the Supabase SQL Editor for project `lykfqucwylxljaxqmzcc`.
+- Phase 21 live Supabase setup is verified locally with CLI linked to project `lykfqucwylxljaxqmzcc`, migrations `001` through `006` applied, Edge Functions deployed, non-secret Google Play package/product secrets configured, private `.env`/Supabase CLI cache ignored from Git, TypeScript passing, audit clean, Expo Doctor passing, Android export passing, and tracked-file secret scans showing no live keys. Next exact step: commit and push only safe docs/config updates to the private GitHub repo.

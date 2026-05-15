@@ -262,13 +262,18 @@ This is the persistent recovery checklist. Future sessions should read this file
 - [x] Wire local mobile `.env` to live Supabase project URL and publishable key.
 - [x] Generate combined fresh-project migration SQL at `supabase/apply_all_migrations.sql`.
 - [x] Add live Supabase setup checklist.
-- [ ] Apply Phase 21 migration to live Supabase and verify restrictions.
-- [ ] Deploy `delete-account` with JWT verification enabled and test against live Supabase.
+- [x] Link Supabase CLI to live project `lykfqucwylxljaxqmzcc`.
+- [x] Apply migrations `001` through `006`, including Phase 21 security hardening, to live Supabase with `supabase db push`.
+- [x] Deploy live Edge Functions: `verify-google-play-purchase`, `delete-account`, `scan-document`, and `generate-lab-interpretation`.
+- [x] Configure non-secret Google Play package/product Supabase secrets for Android billing verification.
+- [ ] Add production-only secrets when available: `GEMINI_API_KEY` and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- [ ] Verify live Phase 21 restrictions with a disposable test user.
+- [ ] Confirm `delete-account` JWT protection and test hard-delete against a disposable live Supabase user.
 - [ ] Test Google Play purchase verification in Play Console internal testing.
 
 ## Save State
 
-Phase 21 Security And Privacy Audit is complete locally with live Supabase public env wired, combined migration SQL generated, secret scan, audit doc, no-public-push safeguards, Supabase security hardening migration, public packet access logs/rate limiting, hard-delete account Edge Function, Google Play backend verifier, verified-subscription gates, server-side AI/OCR quota updates, user-facing health disclaimers, TypeScript passing, audit clean, Expo Doctor passing, and Android export passing; next exact step is pasting `supabase/apply_all_migrations.sql` into the Supabase SQL Editor for project `lykfqucwylxljaxqmzcc`.
+Phase 21 live Supabase setup is verified locally with CLI linked to project `lykfqucwylxljaxqmzcc`, migrations `001` through `006` applied, Edge Functions deployed, non-secret Google Play package/product secrets configured, private `.env`/Supabase CLI cache ignored from Git, TypeScript passing, audit clean, Expo Doctor passing, Android export passing, and tracked-file secret scans showing no live keys; next exact step is committing and pushing only safe docs/config updates to the private GitHub repo.
 
 ## Deferred Unchecked Items
 
