@@ -266,14 +266,22 @@ This is the persistent recovery checklist. Future sessions should read this file
 - [x] Apply migrations `001` through `006`, including Phase 21 security hardening, to live Supabase with `supabase db push`.
 - [x] Deploy live Edge Functions: `verify-google-play-purchase`, `delete-account`, `scan-document`, and `generate-lab-interpretation`.
 - [x] Configure non-secret Google Play package/product Supabase secrets for Android billing verification.
+- [x] Apply live Data API grants and profile insert guard fix migration `20260515143140`.
+- [x] Apply Supabase advisor hardening migration `20260515144003` to drop the obsolete emergency RPC, hide internal SECURITY DEFINER functions from RPC, and remove broad avatar object listing.
+- [x] Apply helper narrowing migration `20260515144138` so `data_packet_scope_is_owned` is SECURITY INVOKER.
+- [x] Run live DB security simulation with disposable auth users for billing-field locks, owned packet scopes, unowned packet denial, scoped public packet output, revoked/expired link denial, and public packet access logging.
+- [x] Verify live storage bucket settings: `documents` and `health_photos` private, `avatars` public, MIME/size limits configured.
+- [x] Run Supabase Security Advisor after hardening.
 - [ ] Add production-only secrets when available: `GEMINI_API_KEY` and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
-- [ ] Verify live Phase 21 restrictions with a disposable test user.
+- [ ] Enable Supabase leaked password protection in the Auth dashboard.
+- [ ] Run true client-session live tests after confirming a disposable email user or temporarily disabling email confirmation for test signup.
+- [ ] Review Supabase Performance Advisor auth initplan warnings and optimize legacy RLS policies before scale testing.
 - [ ] Confirm `delete-account` JWT protection and test hard-delete against a disposable live Supabase user.
 - [ ] Test Google Play purchase verification in Play Console internal testing.
 
 ## Save State
 
-Phase 21 live Supabase setup is verified locally with CLI linked to project `lykfqucwylxljaxqmzcc`, migrations `001` through `006` applied, Edge Functions deployed, non-secret Google Play package/product secrets configured, private `.env`/Supabase CLI cache ignored from Git, TypeScript passing, audit clean, Expo Doctor passing, Android export passing, and tracked-file secret scans showing no live keys; next exact step is committing and pushing only safe docs/config updates to the private GitHub repo.
+Phase 21 live Supabase hardening is verified with migrations through `20260515144138` applied, Edge Functions deployed, non-secret Google Play package/product secrets configured, DB-simulated disposable security tests passing, storage bucket privacy verified, Supabase Security Advisor reduced to intentional public packet warnings plus leaked-password dashboard setting, TypeScript passing, audit clean, Expo Doctor passing, Android export passing, and `.env`/Supabase CLI cache ignored from Git; next exact step is committing and pushing the safe migration/docs updates, then enabling leaked-password protection in Supabase Auth and running true client-session tests with a confirmed disposable user.
 
 ## Deferred Unchecked Items
 

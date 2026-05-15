@@ -1,6 +1,6 @@
 # MedVault Phase 21 Security Audit
 
-Status: pre-publish security gate in progress. Local fixes are implemented and live Supabase migrations/functions are deployed, but live test-user verification and production-only secrets are still pending. Do not publish, share APKs publicly, upload production AABs, or enable live paid subscriptions until Blocker and High items are verified against live services.
+Status: pre-publish security gate in progress. Local fixes are implemented, live Supabase migrations/functions are deployed, DB-simulated disposable security tests pass, and storage bucket privacy is verified. True client-session testing, leaked-password protection, and production-only secrets are still pending. Do not publish, share APKs publicly, upload production AABs, or enable live paid subscriptions until the remaining manual checks pass.
 
 ## Threat Model
 
@@ -36,7 +36,7 @@ Security invariants:
 - Impact: A malicious or modified mobile client could self-upgrade to Pro Family before Google Play verification is implemented.
 - Validation: Static trace from `profiles` policy and mobile Supabase update capability. No live Supabase project is required to confirm the policy shape.
 - Fix: Added migration `006_phase_21_security_hardening.sql` to revoke authenticated/anon updates for billing, subscription, and quota columns, plus a trigger guard that rejects authenticated client changes to billing/quota fields even when table-level grants are broad. Also restricted `profileService.updateProfile` to settings-safe fields only.
-- Status: Migration applied to live Supabase; must still be verified with a disposable live test user before release.
+- Status: Migration applied to live Supabase and verified with a disposable DB-simulated authenticated user. True client-session verification is pending because email confirmation is enabled.
 
 ### High: Public packet RPC needed explicit owner binding
 
@@ -44,7 +44,7 @@ Security invariants:
 - Impact: If a care profile UUID ever leaked and was inserted into a packet scope, the public RPC could become a cross-account disclosure path because SECURITY DEFINER bypasses RLS.
 - Validation: Static trace through Data Packet creation, public token RPC, and returned record queries.
 - Fix: Added migration `006_phase_21_security_hardening.sql` with `data_packet_scope_is_owned`, stricter `data_packets` RLS, and a recreated public RPC that owner-binds care profiles and all returned records.
-- Status: Migration applied to live Supabase; must still be verified with owned, unowned, expired, and revoked packet tests before release.
+- Status: Migration applied to live Supabase and verified with disposable DB-simulated owned, unowned, expired, and revoked packet tests.
 
 ### High: Client-side Pro gates trusted plan strings too loosely
 
@@ -90,6 +90,34 @@ Security invariants:
 - Fix: Added `delete-account` Edge Function and wired Settings to call it. It requires the signed-in user session, `confirmation: "DELETE"`, service-role secret on the server, removes user-prefixed storage objects, then deletes the Auth user so database rows cascade.
 - Status: Function deployed; JWT protection and hard-delete still need testing against a disposable live user.
 
+### Fixed: Authenticated Data API grants were missing
+
+- Evidence: A live DB simulation as the `authenticated` role failed with permission denied on `profiles`, despite RLS policies existing.
+- Impact: Live mobile clients would fail to create/read core app data after signup.
+- Fix: Added migration `20260515143140_phase_21_live_grants_and_profile_insert_guard.sql` to grant authenticated Data API privileges to RLS-protected app tables and safe column-level profile updates.
+- Status: Applied to live Supabase and verified by disposable DB-simulated app writes.
+
+### Fixed: Profile insert guard preserved forged AI usage
+
+- Evidence: The Phase 21 trigger used `COALESCE(NEW.ai_interpretations_used, 0)`, which would preserve a malicious inserted usage count.
+- Impact: A modified client could potentially exhaust or manipulate AI/OCR counters on first profile insert.
+- Fix: Migration `20260515143140_phase_21_live_grants_and_profile_insert_guard.sql` now forces `ai_interpretations_used = 0` and resets `ai_quota_reset_at` on authenticated profile insert.
+- Status: Applied and verified in live DB simulation.
+
+### Fixed: Obsolete public emergency RPC remained exposed
+
+- Evidence: Supabase Security Advisor flagged `get_emergency_profile` as public SECURITY DEFINER; this was the older v1 emergency access path.
+- Impact: Keeping two emergency access paths increases disclosure risk and review complexity.
+- Fix: Migration `20260515144003_phase_21_advisor_hardening.sql` drops the obsolete RPC. Emergency ID now uses scoped `get_public_health_packet`.
+- Status: Applied to live Supabase.
+
+### Fixed: Internal SECURITY DEFINER functions were RPC-executable
+
+- Evidence: Supabase Security Advisor flagged trigger/helper functions such as `handle_new_user`, `protect_profile_billing_fields`, and `rls_auto_enable` as executable by app roles.
+- Impact: Internal functions should not be exposed as callable RPC endpoints.
+- Fix: Migration `20260515144003_phase_21_advisor_hardening.sql` revokes direct execution, sets a fixed search path on `handle_new_user`, and removes broad avatar listing. Migration `20260515144138_phase_21_data_packet_helper_invoker.sql` narrows `data_packet_scope_is_owned` to SECURITY INVOKER.
+- Status: Applied to live Supabase.
+
 ### Fixed: Google Play purchase verifier was a non-unlocking contract stub
 
 - Evidence: `verify-google-play-purchase` previously stored purchase metadata as `pending` and returned `verified: false`.
@@ -115,15 +143,15 @@ Checked for:
 
 ## Remaining Release Blockers
 
-- Verify profile billing/quota column update restrictions against live Supabase with a disposable user.
-- Verify public packet RPC with owned, unowned, expired, and revoked tokens.
-- Verify private `documents` and `health_photos` buckets and signed URL expiry in the live project.
-- Verify public share/Emergency access logging and rate limiting before production.
+- Enable leaked-password protection in Supabase Auth dashboard.
+- Run true client-session tests with a confirmed disposable user.
+- Verify `delete-account` JWT protection and hard-delete against that disposable live user.
+- Verify signed URL creation from a true client session for private `documents` and `health_photos`.
+- Load-test or script public share/Emergency rate limiting before production.
 - Add `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` to Supabase secrets when Play Console service account is ready.
 - Test production Google Play purchase verification with Play Console internal testing.
 - Add Real-time Developer Notifications or a periodic entitlement refresh.
-- Test `delete-account` JWT protection and hard-delete against a disposable live Supabase user.
-- Run Supabase Security Advisor and Performance Advisor after migrations.
+- Review Supabase Performance Advisor auth-initplan warnings and optimize legacy RLS policies before scale testing.
 - Complete real-device notification/upload/QR/PDF/offline QA from preview APK.
 - Host final Privacy Policy and Terms before Play submission.
 

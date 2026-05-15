@@ -1,15 +1,14 @@
-﻿-- MedVault 2.0 combined Supabase migration
--- Project ref: lykfqucwylxljaxqmzcc
--- Run once in Supabase SQL Editor on a fresh project.
+-- MedVault combined migration bundle
+-- Generated from supabase/migrations in filename order.
 
 
 -- ============================================================
--- Source: 001_complete_schema.sql
+-- 001_complete_schema.sql
 -- ============================================================
 
 -- ============================================================
--- MedVault â€” Complete Database Schema
--- Run this in Supabase SQL Editor (supabase.com â†’ your project â†’ SQL Editor)
+-- MedVault — Complete Database Schema
+-- Run this in Supabase SQL Editor (supabase.com → your project → SQL Editor)
 -- ============================================================
 
 -- ============================================================
@@ -585,7 +584,7 @@ CREATE TRIGGER on_auth_user_created
 
 
 -- ============================================================
--- RPC: Get emergency profile (public access â€” no auth needed)
+-- RPC: Get emergency profile (public access — no auth needed)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_emergency_profile(p_token TEXT)
 RETURNS JSON AS $$
@@ -724,7 +723,7 @@ CREATE POLICY "Users can delete own avatars"
   );
 
 -- ============================================================
--- Source: 002_phase_8_5_care_profiles_packets_billing.sql
+-- 002_phase_8_5_care_profiles_packets_billing.sql
 -- ============================================================
 
 -- ============================================================
@@ -1070,7 +1069,7 @@ CREATE INDEX IF NOT EXISTS idx_smart_import_user_status
   ON public.smart_import_suggestions (user_id, status, created_at DESC);
 
 -- ============================================================
--- Source: 003_phase_15_share_links_emergency.sql
+-- 003_phase_15_share_links_emergency.sql
 -- ============================================================
 
 -- ============================================================
@@ -1282,7 +1281,7 @@ REVOKE ALL ON FUNCTION public.get_public_health_packet(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_health_packet(TEXT) TO anon, authenticated;
 
 -- ============================================================
--- Source: 004_phase_17_monthly_digest.sql
+-- 004_phase_17_monthly_digest.sql
 -- ============================================================
 
 -- ============================================================
@@ -1313,7 +1312,7 @@ CREATE INDEX IF NOT EXISTS idx_monthly_family_digests_user_month
   ON public.monthly_family_digests (user_id, month_key, created_at DESC);
 
 -- ============================================================
--- Source: 005_phase_18_settings_compliance.sql
+-- 005_phase_18_settings_compliance.sql
 -- ============================================================
 
 -- ============================================================
@@ -1348,7 +1347,7 @@ CREATE INDEX IF NOT EXISTS idx_account_deletion_requests_user_status
 -- with service-role privileges so mobile never stores admin credentials.
 
 -- ============================================================
--- Source: 006_phase_21_security_hardening.sql
+-- 006_phase_21_security_hardening.sql
 -- ============================================================
 
 -- ============================================================
@@ -1788,3 +1787,184 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_public_health_packet(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_health_packet(TEXT) TO anon, authenticated;
+
+-- ============================================================
+-- 20260515143140_phase_21_live_grants_and_profile_insert_guard.sql
+-- ============================================================
+
+-- ============================================================
+-- MedVault Phase 21: Live Data API Grants And Insert Guard Fix
+-- ============================================================
+
+-- Supabase Data API requires table privileges in addition to RLS policies.
+-- Keep RLS as the row-level authority, but grant authenticated clients access
+-- to the app tables they are already constrained to by policies.
+
+GRANT SELECT, INSERT ON public.profiles TO authenticated;
+
+GRANT UPDATE (
+  full_name,
+  date_of_birth,
+  blood_type,
+  gender,
+  country,
+  avatar_url,
+  allergies,
+  chronic_conditions,
+  emergency_contact_name,
+  emergency_contact_phone,
+  emergency_contact_relation,
+  emergency_id_enabled,
+  emergency_id_token
+) ON public.profiles TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  public.onboarding_progress,
+  public.family_profiles,
+  public.health_events,
+  public.health_event_photos,
+  public.medications,
+  public.medication_photos,
+  public.medication_checkins,
+  public.lab_results,
+  public.documents,
+  public.symptom_entries,
+  public.symptom_photos,
+  public.healthcare_costs,
+  public.cost_photos,
+  public.notifications,
+  public.care_profiles,
+  public.data_packets,
+  public.doctor_packets,
+  public.share_links,
+  public.smart_import_suggestions,
+  public.emergency_profile_scopes,
+  public.monthly_family_digests,
+  public.account_deletion_requests
+TO authenticated;
+
+-- Public packet access logs are intentionally not granted to mobile roles.
+REVOKE ALL ON public.public_packet_access_logs FROM anon, authenticated;
+
+-- Tighten the profile insert trigger: a malicious first profile insert should
+-- not preserve forged AI usage counters.
+CREATE OR REPLACE FUNCTION public.protect_profile_billing_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' AND (select auth.uid()) = NEW.id THEN
+    NEW.plan := 'free';
+    NEW.billing_provider := 'manual';
+    NEW.google_play_subscription_id := NULL;
+    NEW.google_play_purchase_token := NULL;
+    NEW.google_play_order_id := NULL;
+    NEW.subscription_product_id := NULL;
+    NEW.subscription_checked_at := NULL;
+    NEW.razorpay_subscription_id := NULL;
+    NEW.subscription_status := NULL;
+    NEW.ai_interpretations_used := 0;
+    NEW.ai_quota_reset_at := NOW() + INTERVAL '30 days';
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND (select auth.uid()) = NEW.id THEN
+    IF NEW.plan IS DISTINCT FROM OLD.plan
+      OR NEW.billing_provider IS DISTINCT FROM OLD.billing_provider
+      OR NEW.google_play_subscription_id IS DISTINCT FROM OLD.google_play_subscription_id
+      OR NEW.google_play_purchase_token IS DISTINCT FROM OLD.google_play_purchase_token
+      OR NEW.google_play_order_id IS DISTINCT FROM OLD.google_play_order_id
+      OR NEW.subscription_product_id IS DISTINCT FROM OLD.subscription_product_id
+      OR NEW.subscription_checked_at IS DISTINCT FROM OLD.subscription_checked_at
+      OR NEW.razorpay_subscription_id IS DISTINCT FROM OLD.razorpay_subscription_id
+      OR NEW.subscription_status IS DISTINCT FROM OLD.subscription_status
+      OR NEW.ai_interpretations_used IS DISTINCT FROM OLD.ai_interpretations_used
+      OR NEW.ai_quota_reset_at IS DISTINCT FROM OLD.ai_quota_reset_at THEN
+      RAISE EXCEPTION 'Billing and quota fields can only be changed by trusted server-side flows.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- ============================================================
+-- 20260515144003_phase_21_advisor_hardening.sql
+-- ============================================================
+
+-- ============================================================
+-- MedVault Phase 21: Supabase Advisor Hardening
+-- ============================================================
+
+-- Keep auth-created profile setup as a trigger-only function. It should not be
+-- directly callable through the Data API, and it should use a fixed search_path.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name)
+  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name')
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.onboarding_progress (user_id)
+  VALUES (NEW.id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+-- The original v1 emergency RPC exposed a fixed emergency payload. Emergency ID
+-- now uses get_public_health_packet() with explicit user-selected scopes.
+DROP FUNCTION IF EXISTS public.get_emergency_profile(TEXT);
+
+-- Trigger and automatic-RLS helper functions are internal only.
+REVOKE ALL ON FUNCTION public.protect_profile_billing_fields() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+
+-- Keep avatars public by bucket setting, but avoid broad object listing through
+-- storage.objects. Public object URLs still work for known avatar paths.
+DROP POLICY IF EXISTS "Anyone can view avatars" ON storage.objects;
+
+CREATE POLICY "Users can view own avatars"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'avatars' AND
+    (select auth.uid())::text = (storage.foldername(name))[1]
+  );
+
+-- ============================================================
+-- 20260515144138_phase_21_data_packet_helper_invoker.sql
+-- ============================================================
+
+-- ============================================================
+-- MedVault Phase 21: Data Packet Helper Privilege Narrowing
+-- ============================================================
+
+-- This helper is used by the data_packets RLS policy to ensure selected care
+-- profiles belong to the packet owner. It does not need SECURITY DEFINER for
+-- mobile writes; as SECURITY INVOKER, direct calls cannot inspect care profiles
+-- hidden by RLS.
+CREATE OR REPLACE FUNCTION public.data_packet_scope_is_owned(
+  p_user_id UUID,
+  p_care_profile_ids UUID[]
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  SELECT COALESCE(bool_and(cp.id IS NOT NULL AND cp.owner_user_id = p_user_id), true)
+  FROM unnest(COALESCE(p_care_profile_ids, '{}'::uuid[])) AS selected(care_profile_id)
+  LEFT JOIN public.care_profiles cp ON cp.id = selected.care_profile_id;
+$$;
+
+REVOKE ALL ON FUNCTION public.data_packet_scope_is_owned(UUID, UUID[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.data_packet_scope_is_owned(UUID, UUID[]) TO authenticated;

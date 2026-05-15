@@ -17,7 +17,11 @@ https://lykfqucwylxljaxqmzcc.supabase.co
 
 ## Completed On Live Supabase
 
-- Migrations `001` through `006` have been applied with `supabase db push`.
+- Migrations through `20260515144138` have been applied with `supabase db push`.
+- Live hardening migrations added:
+  - `20260515143140_phase_21_live_grants_and_profile_insert_guard.sql`
+  - `20260515144003_phase_21_advisor_hardening.sql`
+  - `20260515144138_phase_21_data_packet_helper_invoker.sql`
 - Edge Functions are deployed and active:
   - `verify-google-play-purchase`
   - `delete-account`
@@ -26,6 +30,15 @@ https://lykfqucwylxljaxqmzcc.supabase.co
 - Non-secret Google Play billing config has been set in Supabase secrets:
   - `GOOGLE_PLAY_PACKAGE_NAME=com.medvault.app`
   - `GOOGLE_PLAY_SUBSCRIPTION_PRODUCT_ID=medvault_pro_family_monthly`
+- DB-simulated disposable security test passed for billing-field locks, owned packet scopes, unowned packet denial, scoped public packet output, revoked/expired link denial, and access logging.
+- Storage bucket configuration verified:
+  - `documents`: private, 25 MB, PDF/JPEG/PNG.
+  - `health_photos`: private, 5 MB, JPEG/PNG/WebP.
+  - `avatars`: public, 5 MB, JPEG/PNG/WebP, with broad object listing removed.
+- Supabase Security Advisor now reports only:
+  - intentional public `get_public_health_packet` SECURITY DEFINER warnings.
+  - leaked-password protection disabled in Auth dashboard.
+  - signed-in execution warning for `get_public_health_packet`, kept so logged-in users can preview responder packets.
 
 ## Dashboard Setup Choices
 
@@ -67,6 +80,13 @@ Verify:
   - `avatars`: public.
 - Function `get_public_health_packet` exists.
 - Table `public_packet_access_logs` exists.
+
+## Dashboard Security Steps Still Needed
+
+1. Go to Supabase Dashboard -> Authentication -> Settings.
+2. Enable leaked password protection.
+3. Keep email confirmation enabled for production. For automated true client-session tests, either confirm a disposable user manually or temporarily disable confirmation only for the test window.
+4. Run Security Advisor again after the dashboard change.
 
 ## Secrets For Edge Functions
 
